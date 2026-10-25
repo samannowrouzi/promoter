@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>محاسبه‌گر پاداش هفتگی</title>
+<style>
+  :root { color-scheme: light; --ink:#172033; --muted:#667085; --line:#d9deea; --bg:#f4f6fb; --accent:#2457c5; --panel:#fff; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:Tahoma, Arial, sans-serif; background:var(--bg); color:var(--ink); line-height:1.8; }
+  main { width:min(900px, 100%); margin:0 auto; padding:22px 14px 40px; }
+  h1 { font-size:1.45rem; margin:0 0 6px; }
+  .intro { color:var(--muted); margin:0 0 20px; font-size:.94rem; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px; margin:14px 0; box-shadow:0 4px 18px #15254a0a; }
+  .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+  label { display:block; font-size:.92rem; font-weight:700; margin-bottom:5px; }
+  input, select { width:100%; border:1px solid #c8cfdd; border-radius:10px; padding:11px 12px; font:inherit; background:white; color:var(--ink); }
+  input:focus, select:focus { outline:2px solid #b9ccff; border-color:var(--accent); }
+  .hint { color:var(--muted); font-size:.8rem; margin-top:4px; }
+  .actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
+  button { font:inherit; border:0; border-radius:10px; padding:10px 18px; cursor:pointer; }
+  .primary { background:var(--accent); color:white; font-weight:700; }
+  .secondary { background:#e9edf6; color:var(--ink); }
+  .result { display:none; }
+  .result.show { display:block; }
+  .status { padding:10px 12px; border-radius:10px; background:#eef3ff; margin-bottom:14px; }
+  .status.bad { background:#fff0ed; color:#9b2c16; }
+  .status:empty { display:none; }
+  .stats { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+  .stat { border:1px solid var(--line); border-radius:12px; padding:12px; background:#fff; min-width:0; }
+  .stat .k { color:var(--muted); font-size:.82rem; }
+  .stat .v { font-size:1.18rem; font-weight:800; overflow-wrap:anywhere; }
+  .stat.rate { background:#fff8e6; border-color:#f0c36d; }
+  .stat.rate .v { color:#a05a00; }
+  .total { background:#f0f5ff; border-color:#c8d8ff; }
+  .total .v { font-size:1.45rem; color:#1747aa; }
+  .foot { color:var(--muted); font-size:.8rem; }
+  @media (max-width:560px) { .grid,.stats { grid-template-columns:1fr; } .panel { padding:14px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>محاسبه‌گر پاداش هفتگی پروموتر</h1>
+  <p class="intro">
+ اطلاعات مربوط به یک هفته (شنبه الی جمعه) را وارد کنید
+</p>
+
+  <section class="panel">
+    <div class="grid">
+      <div>
+        <label for="vehicle">نوع وسیله نقلیه</label>
+        <select id="vehicle">
+          <option value="box">باکس</option>
+          <option value="van">وانت</option>
+          <option value="car" selected>سواری</option>
+        </select>
+      </div>
+      <div>
+        <label for="total">تعداد کل ثبت‌نام‌ها</label>
+        <input id="total" type="number" min="0" step="1" value="0" inputmode="numeric">
+        <div class="hint">رانندگان بلاک شده را در شمارش حساب نکنید </div>
+      </div>
+      <div>
+        <label for="active" id="activeLabel">تعداد راننده فعال</label>
+        <input id="active" type="number" min="0" step="1" value="0" inputmode="numeric">
+        		
+        	<div class="hint"> راننده‌های راید شده این هفته </div>
+      </div>
+      <div>
+        <label for="weeks">
+تعداد هفته‌های فعال متوالی
+</label>
+        <select id="weeks">
+          <option value="0">۰ هفته</option>
+          <option value="1">۱ هفته</option>
+          <option value="2">۲ هفته</option>
+          <option value="3">۳ هفته</option>
+          <option value="4" selected>۴ هفته</option>
+        </select>
+        <div class="hint">
+هر هفته‌ای که حداقل ۲ ثبت‌نام داشتید، هفته فعال حساب میشود
+</div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="primary" id="calculate">محاسبه پاداش</button>
+      <button class="secondary" id="reset" type="button">پاک‌کردن فرم</button>
+    </div>
+  </section>
+
+  <section class="panel result" id="result" aria-live="polite">
+    <h2 style="font-size:1.15rem;margin-top:0">نتیجه محاسبه</h2>
+    <div class="status" id="status"></div>
+    <div class="stats">
+      <div class="stat rate"><div class="k">مبلغ به ازای هر ثبت‌نام</div><div class="v" id="rateOut">—</div></div>
+      <div class="stat total"><div class="k">مبلغ کل قابل پرداخت</div><div class="v" id="totalOut">—</div></div>
+      <div class="stat"><div class="k">درصد راننده فعال</div><div class="v" id="percentOut">—</div></div>
+      <div class="stat"><div class="k">امتیاز ثبت‌نام</div><div class="v" id="signupScoreOut">—</div></div>
+      <div class="stat"><div class="k">امتیاز فعال‌بودن</div><div class="v" id="activeScoreOut">—</div></div>
+      <div class="stat"><div class="k">امتیاز هفته‌های فعال</div><div class="v" id="weeksScoreOut">—</div></div>
+      <div class="stat"><div class="k">مجموع امتیاز</div><div class="v" id="scoreOut">—</div></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <strong>یادآوری</strong>
+    <p class="foot" style="margin-bottom:0">پارامترها و پله‌های امتیازدهی در فایل جداگانه <code>data.js</code> نگهداری می‌شوند. برای تغییر مبالغ یا آستانه‌ها، همان فایل را ویرایش کنید؛ نیازی به تغییر کد محاسبه نیست.</p>
+  </section>
+</main>
+<script src="data.js"></script>
+<script>
+(function () {
+  "use strict";
+  const config = window.BONUS_CONFIG;
+  const $ = (id) => document.getElementById(id);
+  const fmt = (n) => new Intl.NumberFormat("fa-IR").format(n);
+  const money = (n) => fmt(n) + " " + config.currency;
+
+  function tierScore(value, tiers) {
+    let score = 0;
+    for (const tier of tiers) if (value >= tier.min) score = tier.score;
+    return score;
+  }
+  function payoutFor(score, payouts) {
+    const row = payouts.find(p => score >= p.min && score <= p.max);
+    return row ? row.amount : 0;
+  }
+  function updateVehicleFields() {
+    const v = config.vehicles[$("vehicle").value];
+    $("activeLabel").textContent = v.activeLabel;
+  }
+  function calculate() {
+    const vehicleKey = $("vehicle").value;
+    const vehicle = config.vehicles[vehicleKey];
+    const total = Number($("total").value);
+    const active = Number($("active").value);
+    const weeks = Number($("weeks").value);
+    const status = $("status");
+    const result = $("result");
+    result.classList.add("show");
+    status.className = "status";
+    status.textContent = "";
+
+    if (![total, active, weeks].every(Number.isFinite) ||
+        [total, active, weeks].some(n => n < 0 || !Number.isInteger(n))) {
+      status.textContent = "لطفاً اعداد صحیح و غیرمنفی وارد کنید.";
+      status.classList.add("bad");
+      return;
+    }
+    if (active > total) {
+      status.textContent = "تعداد راننده‌های فعال نمی‌تواند از تعداد ثبت‌نام‌ها بیشتر باشد.";
+      status.classList.add("bad");
+      return;
+    }
+    const percent = total > 0 ? (active / total) * 100 : 0;
+    const roundedPercent = Math.round(percent * 100) / 100;
+    const signupScore = tierScore(total, vehicle.signupTiers);
+    const activeScore = tierScore(roundedPercent, vehicle.activeTiers);
+    const weeksScore = tierScore(weeks, vehicle.weeksTiers);
+    const score = signupScore + activeScore + weeksScore;
+    const rate = payoutFor(score, vehicle.payouts);
+
+    // پایه پرداخت: باکس و سواری بر اساس رایدشده، وانت بر اساس کل ثبت‌نام
+    const payoutBase = vehicle.payoutBase === "active" ? active : total;
+    const totalPay = payoutBase * rate;
+
+    $("percentOut").textContent = fmt(roundedPercent) + "٪";
+    $("signupScoreOut").textContent = fmt(signupScore);
+    $("activeScoreOut").textContent = fmt(activeScore);
+    $("weeksScoreOut").textContent = fmt(weeksScore);
+    $("scoreOut").textContent = fmt(score);
+    $("rateOut").textContent = rate ? money(rate) : "تعریف نشده";
+    $("totalOut").textContent = money(totalPay);
+
+    if (!rate) {
+      status.textContent = "مجموع امتیاز " + fmt(score) + " است، اما برای این امتیاز در فایل data.js مبلغی تعریف نشده است؛ پرداخت صفر محاسبه شد.";
+      status.classList.add("bad");
+    }
+  }
+  function resetForm() {
+    $("vehicle").value = "car";
+    $("total").value = "0";
+    $("active").value = "0";
+    $("weeks").value = "4";
+    $("result").classList.remove("show");
+    updateVehicleFields();
+  }
+  $("vehicle").addEventListener("change", updateVehicleFields);
+  $("calculate").addEventListener("click", calculate);
+  $("reset").addEventListener("click", resetForm);
+  updateVehicleFields();
+})();
+</script>
+</body>
+</html>
